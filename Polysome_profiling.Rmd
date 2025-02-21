@@ -1,0 +1,72 @@
+---
+title: "Polysome profiling v-abl preB cells -- WT and G3Bp1 KO (OOPS_AB024)"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+
+```{r load data, message=FALSE}
+library(readxl)
+library(ggplot2)
+library(tidyverse)
+library(patchwork)
+
+df <- read_excel("~/Library/CloudStorage/OneDrive-BABRAHAM/experiments/OOPS_AB024/data_combined_long.xlsx")
+colnames(df)[1] <- "Position"
+
+## Add metadata
+df <- df %>% 
+  mutate(Treatment = case_when(
+    str_detect(Sample, "im") ~ "imatinib 5h",
+    TRUE ~ "untreated"
+  ))
+
+df <- df %>% 
+  mutate(Cell_line = case_when(
+    str_detect(Sample, "A6") ~ "G3Bp1 KO A6",
+    str_detect(Sample, "WT") ~ "WT",
+    str_detect(Sample, "Wt") ~ "WT",
+    str_detect(Sample, "B10") ~ "G3Bp1 KO B10",
+    TRUE ~ "ERROR"
+  ))
+
+df
+```
+
+```{r sanity check}
+df |> group_by(Treatment) |> count()
+df |> group_by(Cell_line) |> count()
+df |> group_by(Sample) |> count()
+```
+
+## Plotting untreated and imatinib treated samples
+
+```{r plot1, fig.width=12, fig.height=8}
+
+FR <- df |> group_by(Sample) |> ggplot(aes(x = Position, y = Absorbance, color = Cell_line)) + geom_line() + labs(title = "Absorbance vs. Position, full range", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom") + facet_wrap(~ fct_rev(Treatment), ncol = 1) + scale_y_continuous(limits = c(0.2, 1)) + scale_x_continuous(limits = c(0, 90), expand = c(0, 0))
+SR <- df |> group_by(Sample) |> ggplot(aes(x = Position, y = Absorbance, color = Cell_line)) + geom_line() + labs(title = "Absorbance vs. Position, 25mm +", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom",axis.title.y = element_blank()) + facet_wrap(~ fct_rev(Treatment), ncol = 1) + scale_y_continuous(limits = c(0.2, 0.3)) + scale_x_continuous(limits = c(24, 90), expand = c(0, 0))
+
+FR + plot_spacer() + SR + plot_layout(nrow = 1, widths = c(5, 0.1, 5))
+
+```
+
+## Comparing untreated and imatinib samples per cell line
+
+```{r plot2, fig.width=12, fig.height=8}
+
+FR <- df |> group_by(Cell_line) |> ggplot(aes(x = Position, y = Absorbance, color = Treatment)) + geom_line() + labs(title = "Absorbance vs. Position, full range", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom") + facet_wrap(~ fct_rev(Cell_line), ncol = 1) + scale_y_continuous(limits = c(0.2, 1)) + scale_x_continuous(limits = c(0, 90), expand = c(0, 0)) 
+SR <- df |> group_by(Cell_line) |> ggplot(aes(x = Position, y = Absorbance, color = Treatment)) + geom_line() + labs(title = "Absorbance vs. Position, 25mm +", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom",axis.title.y = element_blank()) + facet_wrap(~ fct_rev(Cell_line), ncol = 1) + scale_y_continuous(limits = c(0.2, 0.3)) + scale_x_continuous(limits = c(24, 90), expand = c(0, 0))
+
+FR + plot_spacer() + SR + plot_layout(nrow = 1, widths = c(5, 0.1, 5))
+
+```
+
+#### Made this graph by mistake but liked how the area between lines is highlighted.
+
+```{r plot3}
+
+df |> group_by(Cell_line) |> ggplot(aes(x = Position, y = Absorbance, color = Cell_line)) + geom_line() + labs(title = "Absorbance vs. Position", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "none") + facet_wrap(~ fct_rev(Cell_line), ncol = 1) + scale_y_continuous(limits = c(0.2, 0.3)) + scale_x_continuous(limits = c(24, 90), expand = c(0, 0))
+
+```
