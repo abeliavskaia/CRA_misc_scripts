@@ -1,5 +1,6 @@
 ---
-title: "Polysome profiling v-abl preB cells -- WT and G3Bp1 KO (OOPS_AB024)"
+title: "Polysome profiling v-abl preB cells -- WT and G3Bp1 KO, two runs"
+author: "Alex Beliavskaia"
 output:
   html_document:
     df_print: paged
@@ -35,38 +36,140 @@ df <- df %>%
 df
 ```
 
+### Count readings for sanity check
+
 ```{r sanity check}
 df |> group_by(Treatment) |> count()
 df |> group_by(Cell_line) |> count()
 df |> group_by(Sample) |> count()
+df |> group_by(Replication) |> count()
 ```
 
-## Plotting untreated and imatinib treated samples
+## Plot two runs side by side (before normalisation)
 
-```{r plot1, fig.width=12, fig.height=8}
+```{r v1 and v2, echo = F, warning = FALSE, fig.width=12, fig.height=8}
+run_v1_nonnorm <- df |> filter(Replication == 1) |> group_by(Sample) |> 
+  ggplot(aes(x = Position, y = Absorbance, color = Cell_line)) + geom_line() + 
+  labs(title = "Absorbance vs. Position, full range, run 1", x = "Position", y = "Absorbance") + 
+  theme_bw() + 
+  theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom") + 
+  facet_wrap(~ fct_rev(Treatment), ncol = 1) + 
+  scale_y_continuous(limits = c(0.2, 1.1), breaks = seq(0.15, 1.1, by = 0.05)) + 
+  scale_x_continuous(limits = c(2, 90), expand = c(0, 0), breaks = c(2:90))
 
-FR <- df |> group_by(Sample) |> ggplot(aes(x = Position, y = Absorbance, color = Cell_line)) + geom_line() + labs(title = "Absorbance vs. Position, full range", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom") + facet_wrap(~ fct_rev(Treatment), ncol = 1) + scale_y_continuous(limits = c(0.2, 1)) + scale_x_continuous(limits = c(0, 90), expand = c(0, 0))
-SR <- df |> group_by(Sample) |> ggplot(aes(x = Position, y = Absorbance, color = Cell_line)) + geom_line() + labs(title = "Absorbance vs. Position, 25mm +", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom",axis.title.y = element_blank()) + facet_wrap(~ fct_rev(Treatment), ncol = 1) + scale_y_continuous(limits = c(0.2, 0.3)) + scale_x_continuous(limits = c(24, 90), expand = c(0, 0))
+run_v2_nonnorm <- df |> filter(Replication == 2) |> group_by(Sample) |> 
+  ggplot(aes(x = Position, y = Absorbance, color = Cell_line)) + geom_line() + 
+  labs(title = "Absorbance vs. Position, full range, run 2", x = "Position", y = "Absorbance") + 
+  theme_bw() + 
+  theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom") + 
+  facet_wrap(~ fct_rev(Treatment), ncol = 1) + 
+  scale_y_continuous(limits = c(0.15, 1.1), breaks = seq(0.15, 1.1, by = 0.05)) + 
+  scale_x_continuous(limits = c(2, 90), expand = c(0, 0), breaks = c(2:90))
 
-FR + plot_spacer() + SR + plot_layout(nrow = 1, widths = c(5, 0.1, 5))
-
+run_v1_nonnorm + plot_spacer() + run_v2_nonnorm + plot_layout(nrow = 1, widths = c(5, 0.1, 5))
 ```
 
-## Comparing untreated and imatinib samples per cell line
+## Normalise the position against the 60S peak of WT untreated
 
-```{r plot2, fig.width=12, fig.height=8}
+```{r normalisation of position against WT}
+df$Normalised_position <- df$Position
+df$Normalised_absorbance <- df$Absorbance
 
-FR <- df |> group_by(Cell_line) |> ggplot(aes(x = Position, y = Absorbance, color = Treatment)) + geom_line() + labs(title = "Absorbance vs. Position, full range", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom") + facet_wrap(~ fct_rev(Cell_line), ncol = 1) + scale_y_continuous(limits = c(0.2, 1)) + scale_x_continuous(limits = c(0, 90), expand = c(0, 0)) 
-SR <- df |> group_by(Cell_line) |> ggplot(aes(x = Position, y = Absorbance, color = Treatment)) + geom_line() + labs(title = "Absorbance vs. Position, 25mm +", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom",axis.title.y = element_blank()) + facet_wrap(~ fct_rev(Cell_line), ncol = 1) + scale_y_continuous(limits = c(0.2, 0.3)) + scale_x_continuous(limits = c(24, 90), expand = c(0, 0))
+#run1
+df$Normalised_position[df$Sample == "8A6" & df$Replication == 1] <- df$Position[df$Sample == "8A6" & df$Replication == 1] + 0.5
+df$Normalised_position[df$Sample == "8A6im" & df$Replication == 1] <- df$Position[df$Sample == "8A6im" & df$Replication == 1] - 1.75
+df$Normalised_position[df$Sample == "WTim" & df$Replication == 1] <- df$Position[df$Sample == "WTim" & df$Replication == 1] - 1.25
+df$Normalised_position[df$Sample == "8B10" & df$Replication == 1] <- df$Position[df$Sample == "8B10" & df$Replication == 1] - 1.5
+df$Normalised_position[df$Sample == "8B10im" & df$Replication == 1] <- df$Position[df$Sample == "8B10im" & df$Replication == 1] - 0.5
+df$Normalised_absorbance[df$Sample == "8A6im" & df$Replication == 1] <- df$Absorbance[df$Sample == "8A6im" & df$Replication == 1] - 0.05
+df$Normalised_absorbance[df$Sample == "8A6" & df$Replication == 1] <- df$Absorbance[df$Sample == "8A6" & df$Replication == 1] - 0.03
 
-FR + plot_spacer() + SR + plot_layout(nrow = 1, widths = c(5, 0.1, 5))
+#run2
+df$Normalised_position[df$Sample == "8A6" & df$Replication == 2] <- df$Position[df$Sample == "8A6" & df$Replication == 2] - 1.5
+df$Normalised_position[df$Sample == "8A6im" & df$Replication == 2] <- df$Position[df$Sample == "8A6im" & df$Replication == 2] - 0.25
+df$Normalised_position[df$Sample == "WTim" & df$Replication == 2] <- df$Position[df$Sample == "WTim" & df$Replication == 2] - 1.5
+df$Normalised_position[df$Sample == "8B10" & df$Replication == 2] <- df$Position[df$Sample == "8B10" & df$Replication == 2] - 1.5
+df$Normalised_position[df$Sample == "8B10im" & df$Replication == 2] <- df$Position[df$Sample == "8B10im" & df$Replication == 2] - 0.25
+df$Normalised_absorbance[df$Sample == "WT" & df$Replication == 2] <- df$Absorbance[df$Sample == "WT" & df$Replication == 2] + 0.03
+```
+
+## Plot two runs side by side (normalised)
+
+```{r v1 and v2 normalised,  echo = F, warning = FALSE, fig.width=12, fig.height=8}
+run_v1_norm <- df |> filter(Replication == 1) |> group_by(Sample) |> 
+  ggplot(aes(x = Normalised_position, y = Normalised_absorbance, color = Cell_line)) + geom_line() + 
+  labs(title = "Absorbance vs. Position, full range, run1, normalised", x = "Position (mm)", y = "Absorbance") + 
+  theme_bw() + 
+  theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom") + 
+  facet_wrap(~ fct_rev(Treatment), ncol = 1) + 
+  scale_y_continuous(limits = c(0.15, 1), breaks = seq(0.15, 1.1, by = 0.05)) + 
+  scale_x_continuous(limits = c(2, 90), expand = c(0, 0)) +
+  annotate("text", x = 9, y = 0.7, label = "40S", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 15, y = 1, label = "60S", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 21, y = 0.45, label = "80S", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 28, y = 0.4, label = "2X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 35, y = 0.4, label = "3X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 41, y = 0.4, label = "4X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 55, y = 0.4, label = "polysomes", hjust = 0, vjust = 1, color = "red")
+
+run_v2_norm <- df |> filter(Replication == 2) |> group_by(Sample) |> ggplot(aes(x = Normalised_position, y = Normalised_absorbance, color = Cell_line)) + geom_line() + labs(title = "Absorbance vs. Position, full range, run2, normalised", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom") + facet_wrap(~ fct_rev(Treatment), ncol = 1) +  
+  scale_y_continuous(limits = c(0.15, 1.1), breaks = seq(0.15, 1.1, by = 0.05)) + 
+  scale_x_continuous(limits = c(2, 90), expand = c(0, 0)) +
+  annotate("text", x = 9, y = 0.7, label = "40S", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 17, y = 1.1, label = "60S", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 21, y = 0.45, label = "80S", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 32, y = 0.4, label = "2X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 39, y = 0.4, label = "3X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 46, y = 0.4, label = "4X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 55, y = 0.4, label = "polysomes", hjust = 0, vjust = 1, color = "red")
+
+run_v1_norm + plot_spacer() + run_v2_norm + plot_layout(nrow = 1, widths = c(5, 0.1, 5))
+```
+
+## Plot the same data but focus on polysomes
+
+```{r polysomes, echo = F, warning = FALSE, fig.width=12, fig.height=8}
+run_v1_norm_poly<- df |> filter(Replication == 1) |> group_by(Sample) |> 
+  ggplot(aes(x = Normalised_position, y = Normalised_absorbance, color = Cell_line)) + geom_line() + 
+  labs(title = "Absorbance vs. Position, 20 mm +, run1, normalised", x = "Position (mm)", y = "Absorbance") + 
+  theme_bw() + 
+  theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom") + 
+  facet_wrap(~ fct_rev(Treatment), ncol = 1) + 
+  scale_y_continuous(limits = c(0.15, 0.32), breaks = seq(0.15, 1.1, by = 0.05)) + 
+  scale_x_continuous(limits = c(20, 90), expand = c(0, 0)) +
+  annotate("text", x = 28, y = 0.28, label = "2X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 35, y = 0.28, label = "3X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 41, y = 0.28, label = "4X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 47, y = 0.28, label = "5X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 55, y = 0.28, label = "polysomes", hjust = 0, vjust = 1, color = "red")
+
+run_v2_norm_poly <- df |> filter(Replication == 2) |> group_by(Sample) |> ggplot(aes(x = Normalised_position, y = Normalised_absorbance, color = Cell_line)) + geom_line() + labs(title = "Absorbance vs. Position, 20 mm +, run2, normalised", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom") + facet_wrap(~ fct_rev(Treatment), ncol = 1) +  
+  scale_y_continuous(limits = c(0.15, 0.32), breaks = seq(0.15, 1.1, by = 0.05)) + 
+  scale_x_continuous(limits = c(20, 90), expand = c(0, 0)) +
+  annotate("text", x = 31, y = 0.3, label = "2X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 39, y = 0.3, label = "3X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 45, y = 0.3, label = "4X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 51, y = 0.3, label = "5X", hjust = 0, vjust = 1, color = "red") + 
+  annotate("text", x = 60, y = 0.3, label = "polysomes", hjust = 0, vjust = 1, color = "red")
+
+run_v1_norm_poly + plot_spacer() + run_v2_norm_poly + plot_layout(nrow = 1, widths = c(5, 0.1, 5))
+```
+
+## Plotting untreated vs imatinib treated samples by cell line
+
+```{r plot by cell line, echo = F, warning = FALSE, fig.width=12, fig.height=8}
+
+run_v1_norm_by_cellline <- df |> filter(Replication == 1) |> group_by(Sample) |> ggplot(aes(x = Normalised_position, y = Normalised_absorbance, color = Treatment)) + geom_line() + labs(title = "Absorbance vs. Position, full range, run1, normalised", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom") + facet_wrap(~ fct_rev(Cell_line), ncol = 1) + scale_y_continuous(limits = c(0.15, 1.1), breaks = seq(0.15, 1.1, by = 0.05)) + scale_x_continuous(limits = c(2, 90), expand = c(0, 0))
+run_v2_norm_by_cellline <- df |> filter(Replication == 2) |> group_by(Sample) |> ggplot(aes(x = Normalised_position, y = Normalised_absorbance, color = Treatment)) + geom_line() + labs(title = "Absorbance vs. Position, full range, run2, normalised", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "bottom") + facet_wrap(~ fct_rev(Cell_line), ncol = 1) + scale_y_continuous(limits = c(0.15, 1.1), breaks = seq(0.15, 1.1, by = 0.05)) + scale_x_continuous(limits = c(2, 90), expand = c(0, 0))
+
+run_v1_norm_by_cellline + plot_spacer() + run_v2_norm_by_cellline + plot_layout(nrow = 1, widths = c(5, 0.1, 5))
 
 ```
 
 #### Made this graph by mistake but liked how the area between lines is highlighted.
 
-```{r plot3}
+```{r plot3, echo = F, warning = FALSE}
 
-df |> group_by(Cell_line) |> ggplot(aes(x = Position, y = Absorbance, color = Cell_line)) + geom_line() + labs(title = "Absorbance vs. Position", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "none") + facet_wrap(~ fct_rev(Cell_line), ncol = 1) + scale_y_continuous(limits = c(0.2, 0.3)) + scale_x_continuous(limits = c(24, 90), expand = c(0, 0))
+df |> filter(Replication==2) |> group_by(Cell_line) |> ggplot(aes(x = Position, y = Absorbance, color = Cell_line)) + geom_line() + labs(title = "Absorbance vs. Position", x = "Position (mm)", y = "Absorbance") + theme_bw() + theme(legend.title = element_blank(), panel.background = element_blank(), plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "none") + facet_wrap(~ fct_rev(Cell_line), ncol = 1) + scale_y_continuous(limits = c(0.1, 1.1)) + scale_x_continuous(limits = c(0, 90), expand = c(0, 0))
 
 ```
